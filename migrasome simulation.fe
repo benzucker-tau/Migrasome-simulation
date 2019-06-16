@@ -1,0 +1,143 @@
+// migrosome.fe
+// a surface of revolution. 
+// The axis of revolution is the x (!) axis. 
+// general description- axisymmetric tube with area with different bending rigidity
+
+string
+space_dimension 2
+
+
+view_transforms 1 	//drawing both halves of the tube
+ 1 0 0
+ 0 -1 0
+ 0 0 1
+ 
+parameter const		 = 1.0											// factor of initial radius of protein 
+parameter kl     	 = 2	 		 								// lipid's bending rigidity
+parameter kp    	 = 20							 				// protein's bending rigidity
+parameter gamma		 = 1							 				// tension of reservoir
+parameter radl  	 = (kl/(2*gamma))^0.5   						// radius of tube's end
+
+parameter proarea	 = 600											//protein's area
+parameter radp  	 = 6											// radius of tube's centre - notice(!!!) in this version the middle vertex is fixed and has to scanned and find the correct height associated with the minimal energy 
+parameter transition = proarea/(radp*2*pi)  						// point of transition   
+parameter tubeend 	 = 50											// tube's length
+
+parameter angletor   = cos(5*pi/180)								// edge near vertex with angle greater then this will be refined
+
+parameter Lscale	 =	sqrt(kl/gamma)								// length scale
+parameter Escale	 = 	kl											// energy scale
+
+parameter tensconst  =  0
+parameter line_tension=tensconst*sqrt(gamma*kl)						// line tension
+
+parameter kbarl		 = kl											// kappa-bar - gaussian modulus of membrane (RF)
+parameter kbarp		 = kp											// kappa-bar - gaussian modulus of migrasome
+parameter moment 	 = -(kbarl-kbarp)								// Delta kappa-bar
+
+
+parameter counter    = 0											// counting number of files on specific run
+
+
+constraint posrad nonnegative
+formula: y
+
+
+quantity proteinarea fixed=proarea method edge_scalar_integral	//conserved
+scalar_integrand: 2*pi*y									// y = r (?) ( - the integral is over ds(edge))
+
+quantity tensile_energy_lipids  energy method edge_scalar_integral //global - global is instead of first set command in script 
+scalar_integrand: gamma*2*pi*y	
+
+quantity junction energy modulus 10000  method sqcurve_string			// keeping the transition smooth by holding it's angle
+
+quantity junction_torque_left energy modulus moment method edge_general_integral		// torque energy coming from applying Gaus-Bonnet theorem on the gaussian curvature contribution
+scalar_integrand: -2*pi*x4/sqrt(x4^2+x3^2) 		
+
+quantity junction_torque_right energy modulus moment method edge_general_integral       // torque energy coming from applying Gaus-Bonnet theorem on the gaussian curvature contribution
+scalar_integrand: 2*pi*x4/sqrt(x4^2+x3^2) 		
+
+//define vertex attribute h_zero real												// spontaneous curvature - pre-set is 0
+
+quantity sqcyl_l energy modulus 2*kl method sq_mean_curv_cyl 					 	//bending energy of membrane- The axis of rotation is the x-axis
+		
+quantity sqcyl_p energy modulus 2*kp method sq_mean_curv_cyl 					 	//bending energy for protein - The axis of rotation is the x-axis
+
+quantity sqcyl_t energy modulus kp+kl method sq_mean_curv_cyl 					 	//bending energy for transition ring - The axis of rotation is the x-axis
+
+// this is an alternative way -> calculating gaussian contribution all over the simulation:
+//quantity gausscyl_l energy modulus kbarl method sq_mean_curv_cyl 					 	
+//quantity gausscyl_p energy modulus kbarp method sq_mean_curv_cyl 					 	
+//quantity gausscyl_t energy modulus  method sq_mean_curv_cyl 					 
+
+
+quantity line_tension_energy energy modulus line_tension method vertex_scalar_integral		// line tension at edges
+scalar_integrand: 2*pi*y
+
+define edge attribute to_be_refined real  					//add attribute ass indication for refinement
+define vertex attribute total_curvature real  				//add attribute ass indication for refinement
+define vertex attribute gaussian_curvature real  			//add attribute ass indication for refinement
+
+Vertices
+1	-tubeend					radl		fixed    			sqcyl_l	
+2	-tubeend+1					radl		fixed    			sqcyl_l	
+3	(-transition/2-tubeend+1)/2	radp		posrad				sqcyl_l
+4	-transition/2				radp		posrad				sqcyl_t 	 junction	line_tension_energy//
+5	transition/2				radp		posrad				sqcyl_t		 junction	line_tension_energy//
+6	(transition/2+tubeend-1)/2	radp		posrad				sqcyl_l	
+7	tubeend-1					radl		fixed		    	sqcyl_l		
+8	tubeend						radl		fixed		    	sqcyl_l	
+
+Edges
+1  1 2		no_refine						
+2  2 3		tensile_energy_lipids				
+3  3 4		tensile_energy_lipids				
+4  4 5		color green				proteinarea			
+5  5 6		tensile_energy_lipids				
+6  6 7		tensile_energy_lipids				
+7  7 8		no_refine				
+
+
+read
+set edges tension 0 ;				 // instead of the 2D tension switch to 3D "tensile_energy"
+//set edges tensile_energy_lipids ;
+suppress_warning 1825;				// the simulation hits many energy-saddle configuration. one's has to carefully scan the shapes 
+recolor := 0;
+
+r :::= { 'r';set vertex sqcyl_l where x > vertex[5].x ;set vertex sqcyl_l where x < vertex[4].x;set vertex sqcyl_p where x > vertex[4].x && x < vertex[5].x ; set vertex constraint posrad; vertex_average vertex where id == 4 or id == 5; unset edge junction_torque_left;unset edge junction_torque_right; set edge junction_torque_left where id == vertex[4].edge[2].id; set edge junction_torque_right where id == vertex[5].edge[1].id;};
+rat := {refine edge ee where ee.vertex[1].on_quantity junction or ee.vertex[2].on_quantity junction  ; set vertex sqcyl_l where x > vertex[5].x[1];set vertex sqcyl_l where x < vertex[4].x[1];set vertex sqcyl_p where x > vertex[4].x[1] && x < vertex[5].x[1] ; set vertex constraint posrad; vertex_average vertex where id == 4 or id == 5; unset edge junction_torque_left;unset edge junction_torque_right;  set edge junction_torque_left where id == vertex[4].edge[2].id; set edge junction_torque_right where id == vertex[5].edge[1].id;};
+rp := {refine edge ee where ee.vertex[1].x<vertex[5].x and ee.vertex[2].x>vertex[4].x  ; set vertex sqcyl_l where x > vertex[5].x[1];set vertex sqcyl_l where x < vertex[4].x[1];set vertex sqcyl_p where x > vertex[4].x[1] && x < vertex[5].x[1] ; set vertex constraint posrad; vertex_average vertex where id == 4 or id == 5;unset edge junction_torque_left;unset edge junction_torque_right; set edge junction_torque_left where id == vertex[4].edge[2].id; set edge junction_torque_right where id == vertex[5].edge[1].id;};
+rangles := {read "rangles8.cmd";};
+run  	:= {read "migrorun.cmd";};
+rung  	:= {read "migrorung.cmd";};
+runr  	:= {read "migrorefine.cmd";};
+runhess := {read "migrohessian.cmd";};
+ca 		:= {read "change_area.cmd";};
+cr 		:= {read "change_rigidity.cmd";};
+test	:= {read "test.cmd";};
+tmp 	:= {read "tmp.cmd";};
+verav 	:= {read "verav.cmd";};
+dumpit 	:= {read "dumpit8.cmd";};
+zebra 	:= {read "migrozebra.cmd";};
+s
+q
+
+r
+
+recolor := 1;  // this keep the edges with protein-RF separation. for edges zebra separation - recolor := 0;
+zebra
+set vertex fixed where on_quantity sqcyl_p
+
+read "initial8.cmd";
+
+
+read "nochange.cmd";
+//read "auxilary.cmd";
+//dumpit;  				// dump the .fe file to keep all results
+
+//quiet on;
+//read "validation.cmd";
+//quiet off;
+//print kp;
+//print proarea;
+//print tensconst;

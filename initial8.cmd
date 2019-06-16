@@ -1,0 +1,86 @@
+// initializing shape
+g 10; 
+r;
+
+g 200;
+hessian_seek;
+g 200;
+verav;
+g 200;
+hessian_seek;
+g 200;
+r;
+zebra;
+run;
+read "edgegrad8.cmd";
+zebra;
+run;
+runhess;
+run;
+verav;
+run;
+runhess;
+run;
+verav 5;
+run;
+runhess;
+run;
+
+read "edgegrad8.cmd";
+zebra;
+run;
+runhess;
+run;
+verav;
+run;
+runhess;
+run;
+verav 5;
+run;
+runhess;
+run;
+
+rangles;
+zebra;
+run;
+runhess;
+run;
+verav;
+run;
+runhess;
+run;
+verav 5;
+run;
+runhess;
+run;
+
+read "edgegrad8.cmd";
+zebra;
+run;
+runhess;
+run;
+verav;
+run;
+runhess;
+run;
+verav 5;
+run;
+runhess;
+run;
+
+rangles;
+zebra;
+run;
+runhess;
+run;
+verav;
+run;
+runhess;
+run;
+verav 5;
+run;
+runhess;
+run;
+
+recolor := 1;
+zebra;
